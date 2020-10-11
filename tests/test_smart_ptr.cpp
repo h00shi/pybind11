@@ -111,7 +111,14 @@ public:
     T* operator->() { return impl.get(); }
     operator std::shared_ptr<T>&() { return impl; }
 };
-PYBIND11_DECLARE_HOLDER_TYPE(T, non_null_ptr<T>);
+PYBIND11_DECLARE_HOLDER_TYPE(T, std::unique_ptr<non_null_ptr<T>>);
+
+namespace pybind11 { namespace detail {
+template <typename T>
+struct holder_helper<std::unique_ptr<non_null_ptr<T>>> {
+	static const T *get(const std::unique_ptr<non_null_ptr<T>> &p) { return p.get().get(); }
+};
+}}
 
 TEST_SUBMODULE(smart_ptr, m) {
 
