@@ -111,12 +111,20 @@ public:
     T* operator->() { return impl.get(); }
     operator std::shared_ptr<T>&() { return impl; }
 };
-PYBIND11_DECLARE_HOLDER_TYPE(T, std::unique_ptr<non_null_ptr<T>>);
+template<typename T>
+class MyPtr {
+   // You have to define the constructors here too. If non_null_ptr<T> is copyable, you should still be
+   // able to define a copy constructor.
+    std::unique_ptr<non_null_ptr<T>> value;
+};
 
+PYBIND11_DECLARE_HOLDER_TYPE(T, MyPtr<T>);
+
+// maybe you can also get rid of this by putting a get() function in MyPtr directly.
 namespace pybind11 { namespace detail {
 template <typename T>
-struct holder_helper<std::unique_ptr<non_null_ptr<T>>> {
-	static const T *get(const std::unique_ptr<non_null_ptr<T>> &p) { return p.get().get(); }
+struct holder_helper<MyPtr<T>> {
+    static const T *get(const MyPtr &p) { return p.value.get().get(); }
 };
 }}
 
