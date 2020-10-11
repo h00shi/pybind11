@@ -112,10 +112,16 @@ public:
     operator std::shared_ptr<T>&() { return impl; }
 };
 template<typename T>
-class MyPtr {
-   // You have to define the constructors here too. If non_null_ptr<T> is copyable, you should still be
-   // able to define a copy constructor.
-    std::unique_ptr<non_null_ptr<T>> value;
+struct MyPtr {
+    MyPtr() = default;
+    MyPtr(const MyPtr&) = default;
+    MyPtr(MyPtr&&) = default;
+    MyPtr& operator=(const MyPtr&) = default;
+    MyPtr& operator=(MyPtr&&) = default;
+    template <typename U>
+    MyPtr(U&& src) : value(new non_null_ptr<T>(std::forward<U>(src))) {}
+    operator non_null_ptr<T>&() const { return *value; }
+    std::shared_ptr<non_null_ptr<T>> value;
 };
 
 PYBIND11_DECLARE_HOLDER_TYPE(T, MyPtr<T>);
@@ -124,7 +130,11 @@ PYBIND11_DECLARE_HOLDER_TYPE(T, MyPtr<T>);
 namespace pybind11 { namespace detail {
 template <typename T>
 struct holder_helper<MyPtr<T>> {
-    static const T *get(const MyPtr &p) { return p.value.get().get(); }
+    static const T *get(const MyPtr<T> &p) { return p.value->get(); }
+};
+template <typename T>
+struct type_caster<non_null_ptr<T>> : type_caster<MyPtr<T>> {
+    operator non_null_ptr<T>&() const { return this->holder; }
 };
 }}
 
