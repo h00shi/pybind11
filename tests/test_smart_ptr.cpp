@@ -111,30 +111,27 @@ public:
     T* operator->() { return impl.get(); }
     operator std::shared_ptr<T>&() { return impl; }
 };
-template<typename T>
-struct MyPtr {
-    MyPtr() = default;
-    MyPtr(const MyPtr&) = default;
-    MyPtr(MyPtr&&) = default;
-    MyPtr& operator=(const MyPtr&) = default;
-    MyPtr& operator=(MyPtr&&) = default;
-    template <typename U>
-    MyPtr(U&& src) : value(new non_null_ptr<T>(std::forward<U>(src))) {}
-    operator non_null_ptr<T>&() const { return *value; }
-    std::shared_ptr<non_null_ptr<T>> value;
-};
 
-PYBIND11_DECLARE_HOLDER_TYPE(T, MyPtr<T>);
-
-// maybe you can also get rid of this by putting a get() function in MyPtr directly.
 namespace pybind11 { namespace detail {
 template <typename T>
-struct holder_helper<MyPtr<T>> {
-    static const T *get(const MyPtr<T> &p) { return p.value->get(); }
-};
-template <typename T>
-struct type_caster<non_null_ptr<T>> : type_caster<MyPtr<T>> {
-    operator non_null_ptr<T>&() const { return this->holder; }
+struct type_caster<non_null_ptr<T>> {
+    static handle cast(non_null_ptr<T> &&src, return_value_policy p, handle h) {
+        std::shared_ptr<T> shared_ptr = std::move(src);
+        return type_caster<std::shared_ptr<T>>::cast(shared_ptr, p, h);
+    }
+
+    bool load(handle src, bool convert) {
+        if(!subcaster.load(src, convert)) return false;
+        return true;
+    }
+
+    // Implementation
+    type_caster<std::shared_ptr<T>> subcaster;
+
+    // Each type caster must have these
+    template <typename _> using cast_op_type = non_null_ptr<T>;
+    static constexpr auto name = type_caster<std::shared_ptr<T>>::name;
+    operator non_null_ptr<T>() { return non_null_ptr<T>(static_cast<std::shared_ptr<T>>(subcaster)); }
 };
 }}
 
